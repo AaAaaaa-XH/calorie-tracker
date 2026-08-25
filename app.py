@@ -126,16 +126,22 @@ def save_data(data):
 def today_str(): return datetime.now().strftime('%Y-%m-%d')
 def get_today_data():
     d = load_data(); t = today_str()
-    return d.get(t, {'meals':{},'burn':[],'goal':None})
+    ensure_day(d, t)
+    return d[t]
 def get_all_foods():
     foods = []
     for cat, items in FOOD_DB.items():
         for it in items:
             c = it.copy(); c['category'] = cat; foods.append(c)
     return foods
+def ensure_day(d, t):
+    if t not in d: d[t] = {}
+    d[t].setdefault('meals', {})
+    d[t].setdefault('burn', [])
+    d[t].setdefault('goal', None)
 def save_meal(food, weight, meal_type):
     d = load_data(); t = today_str()
-    if t not in d: d[t] = {'meals':{},'burn':[],'goal':None}
+    ensure_day(d, t)
     if meal_type not in d[t]['meals']: d[t]['meals'][meal_type] = []
     cal = food['cal'] * weight / 100
     d[t]['meals'][meal_type].append({
@@ -147,7 +153,7 @@ def save_meal(food, weight, meal_type):
     save_data(d)
 def save_burn(act, dur):
     d = load_data(); t = today_str()
-    if t not in d: d[t] = {'meals':{},'burn':[],'goal':None}
+    ensure_day(d, t)
     cal = act['cpm'] * dur
     d[t]['burn'].append({
         'activity':act['name'],'emoji':act['e'],'duration_min':dur,
@@ -156,7 +162,7 @@ def save_burn(act, dur):
     save_data(d)
 def save_goal(goal):
     d = load_data(); t = today_str()
-    if t not in d: d[t] = {'meals':{},'burn':[],'goal':None}
+    ensure_day(d, t)
     d[t]['goal'] = goal; save_data(d)
 def delete_record(rtype, meal_type=None, idx=None):
     d = load_data(); t = today_str()
