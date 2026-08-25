@@ -1,903 +1,324 @@
-import streamlit as st
-import json
-from datetime import datetime, timedelta
-from pathlib import Path
+        p = min(100,int(ti/gc*100))
+        st.markdown(f"**目标:** {get_goal_name(g.get('type',''))} {gc}千卡")
+        st.progress(p/100)
+        st.caption(f"{ti:.0f}/{gc} ({p}%)")
 
-# 页面配置
-st.set_page_config(
-    page_title="🍎 卡路里追踪器", 
-    page_icon="🍎", 
-    layout="wide",
-    initial_sidebar_state="expanded"
-)
+# ==================== 页面1: 记录饮食 ====================
+if page == "\U0001f4dd 记录饮食":
+    st.markdown('<p class="cartoon-title">📝 记录饮食</p>', unsafe_allow_html=True)
 
-# 卡通风格CSS
-st.markdown("""
-<style>
-    @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&display=swap');
-    
-    * {
-        font-family: 'Noto Sans SC', sans-serif;
-    }
-    
-    .stApp {
-        background: linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%);
-    }
-    
-    /* 卡通标题 */
-    .cartoon-title {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        font-size: 2.5rem;
-        font-weight: bold;
-        text-align: center;
-        padding: 20px;
-        text-shadow: 2px 2px 4px rgba(0,0,0,0.1);
-    }
-    
-    /* 卡通卡片 */
-    .cartoon-card {
-        background: white;
-        border-radius: 25px;
-        padding: 20px;
-        box-shadow: 0 8px 25px rgba(0,0,0,0.1);
-        border: 3px solid #f0f0f0;
-        margin: 10px 0;
-        transition: transform 0.3s;
-    }
-    .cartoon-card:hover {
-        transform: translateY(-5px);
-        box-shadow: 0 12px 35px rgba(0,0,0,0.15);
-    }
-    
-    /* 统计卡片 */
-    .stat-card {
-        background: linear-gradient(135deg, #a8edea 0%, #fed6e3 100%);
-        border-radius: 20px;
-        padding: 25px;
-        text-align: center;
-        border: 3px dashed #ff9a9e;
-    }
-    .stat-card h3 {
-        font-size: 2rem;
-        margin: 0;
-    }
-    .stat-card p {
-        color: #666;
-        margin: 5px 0 0 0;
-    }
-    
-    /* 食物卡片 */
-    .food-card {
-        background: linear-gradient(145deg, #ffffff, #f8f9fa);
-        border-radius: 20px;
-        padding: 15px;
-        text-align: center;
-        border: 3px solid #e9ecef;
-        transition: all 0.3s;
-        cursor: pointer;
-    }
-    .food-card:hover {
-        border-color: #ff6b6b;
-        transform: scale(1.05);
-    }
-    .food-emoji {
-        font-size: 3rem;
-        margin: 10px 0;
-    }
-    .food-name {
-        font-weight: bold;
-        font-size: 1.1rem;
-        color: #333;
-    }
-    .food-cal {
-        color: #ff6b6b;
-        font-weight: bold;
-    }
-    
-    /* 运动卡片 */
-    .activity-card {
-        background: linear-gradient(145deg, #a8edea, #fed6e3);
-        border-radius: 20px;
-        padding: 15px;
-        text-align: center;
-        border: 3px solid #fff;
-    }
-    
-    /* 餐次标签 */
-    .meal-tab {
-        display: inline-block;
-        padding: 10px 25px;
-        margin: 5px;
-        border-radius: 25px;
-        font-weight: bold;
-        cursor: pointer;
-        transition: all 0.3s;
-    }
-    .meal-tab.breakfast { background: #fff3cd; color: #856404; }
-    .meal-tab.lunch { background: #d4edda; color: #155724; }
-    .meal-tab.dinner { background: #cce5ff; color: #004085; }
-    .meal-tab.snack { background: #f8d7da; color: #721c24; }
-    
-    /* 建议卡片 */
-    .suggestion-card {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        color: white;
-        border-radius: 20px;
-        padding: 20px;
-        margin: 10px 0;
-    }
-    .suggestion-card h4 {
-        margin: 0 0 10px 0;
-    }
-    
-    /* 目标按钮 */
-    .goal-btn {
-        display: inline-block;
-        padding: 15px 30px;
-        margin: 8px;
-        border-radius: 30px;
-        font-weight: bold;
-        font-size: 1.1rem;
-        cursor: pointer;
-        border: 3px solid transparent;
-        transition: all 0.3s;
-    }
-    .goal-btn.lose-fat {
-        background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
-        color: white;
-    }
-    .goal-btn.lose-weight {
-        background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
-        color: white;
-    }
-    .goal-btn.gain-weight {
-        background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
-        color: white;
-    }
-    .goal-btn.gain-muscle {
-        background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
-        color: white;
-    }
-    .goal-btn:hover {
-        transform: scale(1.1);
-        box-shadow: 0 5px 20px rgba(0,0,0,0.2);
-    }
-    
-    /* 进度条 */
-    .progress-bar {
-        background: #e9ecef;
-        border-radius: 15px;
-        height: 25px;
-        overflow: hidden;
-        margin: 10px 0;
-    }
-    .progress-fill {
-        height: 100%;
-        border-radius: 15px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        color: white;
-        font-weight: bold;
-        transition: width 0.5s;
-    }
-    .progress-fill.intake { background: linear-gradient(90deg, #ff9a9e, #fecfef); }
-    .progress-fill.burn { background: linear-gradient(90deg, #a8edea, #fed6e3); }
-    
-    /* 分隔线 */
-    .cute-divider {
-        text-align: center;
-        margin: 20px 0;
-        font-size: 1.5rem;
-    }
-    
-    /* 侧边栏 */
-    section[data-testid="stSidebar"] {
-        background: linear-gradient(180deg, #ffecd2 0%, #fcb69f 100%);
-    }
-</style>
-""", unsafe_allow_html=True)
+    meal_label = st.selectbox("选择餐次", list(MEAL_TYPES.keys()))
+    meal_key = MEAL_TYPES[meal_label]
+    target_cal = st.number_input("目标热量 (千卡)", min_value=500, max_value=5000, value=2000, step=50, key="target_cal")
+    if st.button("📌 保存今日目标", use_container_width=True):
+        save_goal({"type":"maintain","calories":target_cal})
+        st.success(f"目标已保存: {target_cal}千卡/天")
 
-# ==================== 数据库 ====================
-FOOD_DB = {
-    "🍚 主食": [
-        {"name": "米饭", "cal": 116, "emoji": "🍚", "protein": 2.6, "fat": 0.3, "carbs": 25.6, "tags": ["减脂", "增肌"]},
-        {"name": "面条", "cal": 110, "emoji": "🍜", "protein": 3.5, "fat": 0.5, "carbs": 23.0, "tags": ["增重"]},
-        {"name": "馒头", "cal": 221, "emoji": "🍞", "protein": 7.0, "fat": 1.1, "carbs": 47.0, "tags": ["增重"]},
-        {"name": "糙米饭", "cal": 111, "emoji": "🍚", "protein": 2.6, "fat": 0.9, "carbs": 23.0, "tags": ["减脂", "减肥"]},
-        {"name": "燕麦片", "cal": 379, "emoji": "🥣", "protein": 15.0, "fat": 6.7, "carbs": 61.6, "tags": ["增肌", "减脂"]},
-        {"name": "红薯", "cal": 86, "emoji": "🍠", "protein": 1.6, "fat": 0.1, "carbs": 20.1, "tags": ["减脂", "减肥"]},
-        {"name": "玉米", "cal": 96, "emoji": "🌽", "protein": 3.4, "fat": 1.2, "carbs": 19.9, "tags": ["减脂"]},
-        {"name": "全麦面包", "cal": 246, "emoji": "🍞", "protein": 10.0, "fat": 3.4, "carbs": 41.3, "tags": ["增肌"]},
-    ],
-    "🥩 肉蛋奶": [
-        {"name": "鸡胸肉", "cal": 133, "emoji": "🍗", "protein": 31.0, "fat": 1.2, "carbs": 0, "tags": ["增肌", "减脂", "减肥"]},
-        {"name": "牛肉", "cal": 125, "emoji": "🥩", "protein": 26.1, "fat": 3.7, "carbs": 0, "tags": ["增肌"]},
-        {"name": "猪里脊", "cal": 155, "emoji": "🥩", "protein": 20.2, "fat": 7.9, "carbs": 0, "tags": ["增重"]},
-        {"name": "鸡蛋", "cal": 144, "emoji": "🥚", "protein": 13.3, "fat": 9.5, "carbs": 1.5, "tags": ["增肌", "减脂"]},
-        {"name": "三文鱼", "cal": 139, "emoji": "🐟", "protein": 21.3, "fat": 5.9, "carbs": 0, "tags": ["增肌", "减脂"]},
-        {"name": "虾仁", "cal": 48, "emoji": "🦐", "protein": 10.4, "fat": 0.3, "carbs": 0, "tags": ["减脂", "减肥"]},
-        {"name": "牛奶", "cal": 54, "emoji": "🥛", "protein": 3.0, "fat": 3.2, "carbs": 3.4, "tags": ["增重", "增肌"]},
-        {"name": "酸奶", "cal": 72, "emoji": "🥛", "protein": 3.5, "fat": 2.7, "carbs": 9.3, "tags": ["减脂"]},
-    ],
-    "🥬 蔬菜": [
-        {"name": "西兰花", "cal": 34, "emoji": "🥦", "protein": 2.8, "fat": 0.4, "carbs": 6.6, "tags": ["减脂", "减肥", "增肌"]},
-        {"name": "番茄", "cal": 18, "emoji": "🍅", "protein": 0.9, "fat": 0.2, "carbs": 3.9, "tags": ["减肥", "减脂"]},
-        {"name": "黄瓜", "cal": 16, "emoji": "🥒", "protein": 0.7, "fat": 0.1, "carbs": 3.6, "tags": ["减肥", "减脂"]},
-        {"name": "菠菜", "cal": 23, "emoji": "🥬", "protein": 2.9, "fat": 0.4, "carbs": 3.6, "tags": ["减脂", "增肌"]},
-        {"name": "胡萝卜", "cal": 41, "emoji": "🥕", "protein": 0.9, "fat": 0.2, "carbs": 9.6, "tags": ["增重"]},
-        {"name": "生菜", "cal": 15, "emoji": "🥬", "protein": 1.3, "fat": 0.3, "carbs": 2.8, "tags": ["减肥"]},
-    ],
-    "🍎 水果": [
-        {"name": "苹果", "cal": 52, "emoji": "🍎", "protein": 0.3, "fat": 0.2, "carbs": 13.8, "tags": ["减脂", "减肥"]},
-        {"name": "香蕉", "cal": 89, "emoji": "🍌", "protein": 1.1, "fat": 0.3, "carbs": 22.8, "tags": ["增肌", "增重"]},
-        {"name": "橙子", "cal": 47, "emoji": "🍊", "protein": 0.9, "fat": 0.1, "carbs": 11.8, "tags": ["减脂"]},
-        {"name": "草莓", "cal": 32, "emoji": "🍓", "protein": 0.7, "fat": 0.3, "carbs": 7.7, "tags": ["减肥", "减脂"]},
-        {"name": "西瓜", "cal": 30, "emoji": "🍉", "protein": 0.6, "fat": 0.1, "carbs": 7.6, "tags": ["减肥"]},
-        {"name": "葡萄", "cal": 69, "emoji": "🍇", "protein": 0.7, "fat": 0.2, "carbs": 18.1, "tags": ["增重"]},
-    ],
-    "🍲 中式菜品": [
-        {"name": "宫保鸡丁", "cal": 162, "emoji": "🍲", "protein": 15.2, "fat": 8.5, "carbs": 7.3, "tags": ["增肌"]},
-        {"name": "番茄炒蛋", "cal": 98, "emoji": "🍅", "protein": 5.5, "fat": 6.8, "carbs": 5.2, "tags": ["增重"]},
-        {"name": "红烧肉", "cal": 285, "emoji": "🥩", "protein": 12.3, "fat": 24.5, "carbs": 4.8, "tags": ["增重"]},
-        {"name": "清炒时蔬", "cal": 45, "emoji": "🥬", "protein": 2.0, "fat": 3.0, "carbs": 3.0, "tags": ["减肥", "减脂"]},
-        {"name": "蛋花汤", "cal": 28, "emoji": "🍲", "protein": 2.0, "fat": 1.5, "carbs": 2.5, "tags": ["减肥"]},
-    ],
-    "🍔 西式快餐": [
-        {"name": "汉堡", "cal": 254, "emoji": "🍔", "protein": 12.0, "fat": 9.5, "carbs": 31.0, "tags": ["增重"]},
-        {"name": "薯条", "cal": 312, "emoji": "🍟", "protein": 3.4, "fat": 15.0, "carbs": 41.4, "tags": []},
-        {"name": "披萨", "cal": 266, "emoji": "🍕", "protein": 11.0, "fat": 10.4, "carbs": 33.0, "tags": ["增重"]},
-        {"name": "沙拉", "cal": 65, "emoji": "🥗", "protein": 3.0, "fat": 4.0, "carbs": 5.0, "tags": ["减肥", "减脂"]},
-    ],
-    "☕ 饮品": [
-        {"name": "咖啡", "cal": 2, "emoji": "☕", "protein": 0.3, "fat": 0, "carbs": 0, "tags": ["减脂"]},
-        {"name": "拿铁", "cal": 135, "emoji": "☕", "protein": 6.3, "fat": 4.5, "carbs": 16.0, "tags": ["增重"]},
-        {"name": "奶茶", "cal": 80, "emoji": "🧋", "protein": 1.5, "fat": 2.5, "carbs": 13.5, "tags": []},
-        {"name": "可乐", "cal": 42, "emoji": "🥤", "protein": 0, "fat": 0, "carbs": 10.6, "tags": []},
-        {"name": "鲜榨橙汁", "cal": 45, "emoji": "🍊", "protein": 0.7, "fat": 0.2, "carbs": 10.4, "tags": ["增重"]},
-    ],
-    "🍰 甜点零食": [
-        {"name": "巧克力", "cal": 546, "emoji": "🍫", "protein": 4.9, "fat": 31.3, "carbs": 59.4, "tags": ["增重"]},
-        {"name": "蛋糕", "cal": 347, "emoji": "🎂", "protein": 4.5, "fat": 15.5, "carbs": 50.0, "tags": ["增重"]},
-        {"name": "冰淇淋", "cal": 207, "emoji": "🍦", "protein": 3.5, "fat": 11.0, "carbs": 24.0, "tags": []},
-        {"name": "坚果", "cal": 607, "emoji": "🥜", "protein": 20.0, "fat": 50.0, "carbs": 20.0, "tags": ["增肌", "增重"]},
-    ],
-}
+    st.markdown('<div class="cute-divider">--- 🍽️ 选择食物 ---</div>', unsafe_allow_html=True)
 
-ACTIVITY_DB = {
-    "🏃 有氧运动": [
-        {"name": "跑步", "cal_per_min": 10, "emoji": "🏃", "difficulty": "中等"},
-        {"name": "游泳", "cal_per_min": 8, "emoji": "🏊", "difficulty": "中等"},
-        {"name": "骑车", "cal_per_min": 7, "emoji": "🚴", "difficulty": "简单"},
-        {"name": "跳绳", "cal_per_min": 12, "emoji": "🤸", "difficulty": "困难"},
-        {"name": "快走", "cal_per_min": 5, "emoji": "🚶", "difficulty": "简单"},
-    ],
-    "💪 力量训练": [
-        {"name": "举重", "cal_per_min": 6, "emoji": "🏋️", "difficulty": "困难"},
-        {"name": "俯卧撑", "cal_per_min": 8, "emoji": "💪", "difficulty": "中等"},
-        {"name": "深蹲", "cal_per_min": 7, "emoji": "🏋️", "difficulty": "中等"},
-        {"name": "平板支撑", "cal_per_min": 5, "emoji": "🧘", "difficulty": "中等"},
-    ],
-    "🧘 柔韧训练": [
-        {"name": "瑜伽", "cal_per_min": 4, "emoji": "🧘", "difficulty": "简单"},
-        {"name": "拉伸", "cal_per_min": 3, "emoji": "🤸", "difficulty": "简单"},
-    ],
-    "🏠 日常活动": [
-        {"name": "走路", "cal_per_min": 4, "emoji": "🚶", "difficulty": "简单"},
-        {"name": "做家务", "cal_per_min": 3.5, "emoji": "🧹", "difficulty": "简单"},
-        {"name": "逛街", "cal_per_min": 3, "emoji": "🛍️", "difficulty": "简单"},
-    ],
-}
+    keyword = st.text_input("🔍 搜索食物", placeholder="输入食物名称...")
+    categories = ["全部"] + list(FOOD_DB.keys())
+    sel_cat = st.selectbox("📂 分类筛选", categories)
+    goal_filter = st.selectbox("🎯 目标筛选", ["全部","减脂","减肥","增肌","增重","保持"], key="gf")
 
-MEAL_TYPES = {
-    "🌅 早餐": "breakfast",
-    "☀️ 午餐": "lunch", 
-    "🌙 晚餐": "dinner",
-    "🍪 加餐": "snack"
-}
+    filtered = get_all_foods()
+    if keyword: filtered = [f for f in filtered if keyword.lower() in f['name'].lower()]
+    if sel_cat != "全部": filtered = [f for f in filtered if f['category'] == sel_cat]
 
-# ==================== 数据函数 ====================
-DATA_FILE = Path('calorie_data.json')
-
-def load_data():
-    if DATA_FILE.exists():
-        with open(DATA_FILE, 'r', encoding='utf-8') as f:
-            return json.load(f)
-    return {}
-
-def save_data(data):
-    with open(DATA_FILE, 'w', encoding='utf-8') as f:
-        json.dump(data, f, ensure_ascii=False, indent=2)
-
-def get_today_str():
-    return datetime.now().strftime('%Y-%m-%d')
-
-def get_today_data():
-    data = load_data()
-    today = get_today_str()
-    return data.get(today, {'meals': {}, 'burn': [], 'goal': None})
-
-def get_all_foods():
-    foods = []
-    for category, items in FOOD_DB.items():
-        for item in items:
-            item_copy = item.copy()
-            item_copy['category'] = category
-            foods.append(item_copy)
-    return foods
-
-def save_meal(food, weight, meal_type):
-    data = load_data()
-    today = get_today_str()
-    if today not in data:
-        data[today] = {'meals': {}, 'burn': [], 'goal': None}
-    if meal_type not in data[today]['meals']:
-        data[today]['meals'][meal_type] = []
-    cal = food['cal'] * weight / 100
-    data[today]['meals'][meal_type].append({
-        'food': food['name'],
-        'emoji': food['emoji'],
-        'weight_g': weight,
-        'calories': round(cal, 1),
-        'protein': round(food['protein'] * weight / 100, 1),
-        'fat': round(food['fat'] * weight / 100, 1),
-        'carbs': round(food['carbs'] * weight / 100, 1),
-        'time': datetime.now().strftime('%H:%M')
-    })
-    save_data(data)
-
-def save_burn(activity, duration):
-    data = load_data()
-    today = get_today_str()
-    if today not in data:
-        data[today] = {'meals': {}, 'burn': [], 'goal': None}
-    cal = activity['cal_per_min'] * duration
-    data[today]['burn'].append({
-        'activity': activity['name'],
-        'emoji': activity['emoji'],
-        'duration_min': duration,
-        'calories': round(cal, 1),
-        'time': datetime.now().strftime('%H:%M')
-    })
-    save_data(data)
-
-def save_goal(goal):
-    data = load_data()
-    today = get_today_str()
-    if today not in data:
-        data[today] = {'meals': {}, 'burn': [], 'goal': None}
-    data[today]['goal'] = goal
-    save_data(data)
-
-def delete_record(record_type, meal_type=None, index=None):
-    data = load_data()
-    today = get_today_str()
-    if today not in data:
-        return
-    if record_type == 'meal' and meal_type and index is not None:
-        if meal_type in data[today].get('meals', {}):
-            data[today]['meals'][meal_type].pop(index)
-    elif record_type == 'burn' and index is not None:
-        data[today]['burn'].pop(index)
-    save_data(data)
-
-def get_weekly_data():
-    data = load_data()
-    weekly = []
-    for i in range(6, -1, -1):
-        date = (datetime.now() - timedelta(days=i)).strftime('%Y-%m-%d')
-        day_data = data.get(date, {'meals': {}, 'burn': []})
-        intake = sum(sum(item['calories'] for item in meal) for meal in day_data.get('meals', {}).values())
-        burn = sum(r['calories'] for r in day_data.get('burn', []))
-        weekday_names = ['周一', '周二', '周三', '周四', '周五', '周六', '周日']
-        weekday = weekday_names[datetime.strptime(date, '%Y-%m-%d').weekday()]
-        weekly.append({
-            'date': date,
-            'day': weekday,
-            'intake': round(intake, 1),
-            'burn': round(burn, 1)
-        })
-    return weekly
-
-# ==================== 侧边栏 ====================
-with st.sidebar:
-    st.markdown("## 🍎 卡路里追踪器")
-    st.markdown("### 记录饮食 · 追踪营养 · 健康生活")
-    st.markdown("---")
-    
-    page = st.radio(
-        "功能导航",
-        ["📝 记录饮食", "🏃 记录运动", "📊 今日统计", "📈 周趋势", "💡 饮食建议"],
-        label_visibility="collapsed"
-    )
-    
-    st.markdown("---")
-    
-    today_data = get_today_data()
-    total_intake = sum(sum(item['calories'] for item in meal) for meal in today_data.get('meals', {}).values())
-    total_burn = sum(r['calories'] for r in today_data.get('burn', []))
-    
-    st.markdown("### 📊 今日速览")
-    st.metric("🍽️ 摄入", f"{total_intake:.0f} 千卡")
-    st.metric("🔥 消耗", f"{total_burn:.0f} 千卡")
-    st.metric("📈 净摄入", f"{total_intake - total_burn:.0f} 千卡")
-    
-    st.markdown("---")
-    st.markdown("### 🎯 今日目标")
-    
-    goal = today_data.get('goal')
-    if goal:
-        goal_cal = goal.get('calories', 2000)
-        progress = min(100, int(total_intake / goal_cal * 100))
-        st.progress(progress / 100)
-        st.caption(f"{total_intake:.0f} / {goal_cal} 千卡 ({progress}%)")
-    else:
-        st.info("未设置目标")
-
-# ==================== 记录饮食 ====================
-if page == "📝 记录饮食":
-    st.markdown('<h1 class="cartoon-title">📝 记录饮食</h1>', unsafe_allow_html=True)
-    
-    today_data = get_today_data()
-    
-    # 餐次统计
-    col1, col2, col3, col4 = st.columns(4)
-    for col, (meal_name, meal_key) in zip([col1, col2, col3, col4], MEAL_TYPES.items()):
-        meal_cal = sum(item['calories'] for item in today_data.get('meals', {}).get(meal_key, []))
-        with col:
-            st.markdown(f"""
-            <div class="stat-card">
-                <h3>{meal_name.split(' ')[0]}</h3>
-                <p>{meal_cal:.0f} 千卡</p>
-            </div>
-            """, unsafe_allow_html=True)
-    
-    st.markdown('<div class="cute-divider">✨ ✨ ✨</div>', unsafe_allow_html=True)
-    
-    # 选择餐次
-    selected_meal_name = st.radio("选择餐次", list(MEAL_TYPES.keys()), horizontal=True)
-    selected_meal = MEAL_TYPES[selected_meal_name]
-    
-    # 搜索和分类
-    col1, col2 = st.columns([2, 1])
-    with col1:
-        search_query = st.text_input("🔍 搜索食物", placeholder="输入食物名称...")
-    with col2:
-        categories = ["全部"] + list(FOOD_DB.keys())
-        selected_category = st.selectbox("分类", categories)
-    
-    # 过滤食物
-    all_foods = get_all_foods()
-    if search_query:
-        filtered_foods = [f for f in all_foods if search_query.lower() in f['name'].lower()]
-    elif selected_category != "全部":
-        filtered_foods = FOOD_DB.get(selected_category, [])
-    else:
-        filtered_foods = all_foods
-    
-    st.subheader(f"🍽️ 选择食物 ({len(filtered_foods)}种)")
-    
-    # 食物网格
-    foods_per_row = 4
-    for i in range(0, len(filtered_foods), foods_per_row):
-        cols = st.columns(foods_per_row)
-        for j, col in enumerate(cols):
-            if i + j < len(filtered_foods):
-                food = filtered_foods[i + j]
+    if filtered:
+        cols_per_row = 7
+        for i in range(0, len(filtered), cols_per_row):
+            cols = st.columns(cols_per_row)
+            for j, col in enumerate(cols):
+                idx = i + j
+                if idx >= len(filtered): break
+                f = filtered[idx]
                 with col:
-                    st.markdown(f"""
-                    <div class="food-card">
-                        <div class="food-emoji">{food['emoji']}</div>
-                        <div class="food-name">{food['name']}</div>
-                        <div class="food-cal">{food['cal']} 千卡/100g</div>
-                        <div>蛋白 {food['protein']}g</div>
-                    </div>
-                    """, unsafe_allow_html=True)
-                    weight = st.number_input(
-                        "克", min_value=10, max_value=1000, value=100, step=10,
-                        key=f"w_{food['name']}_{selected_meal}_{i+j}",
-                        label_visibility="collapsed"
-                    )
-                    if st.button("➕ 添加", key=f"add_{food['name']}_{selected_meal}_{i+j}", use_container_width=True):
-                        save_meal(food, weight, selected_meal)
-                        st.success(f"✅ 已添加 {food['emoji']} {food['name']} {weight}g")
+                    if st.button(f"{f['e']}\n{f['name']}\n{f['cal']}kcal", key=f"food_{f['name']}_{idx}", use_container_width=True):
+                        st.session_state['selected_food'] = f
                         st.rerun()
-    
-    st.markdown('<div class="cute-divider">📋 📋 📋</div>', unsafe_allow_html=True)
-    
-    # 今日记录
-    st.subheader("📋 今日饮食记录")
-    
-    for meal_type, meal_name in MEAL_TYPES.items():
-        records = today_data.get('meals', {}).get(meal_type, [])
-        if records:
-            meal_cal = sum(r['calories'] for r in records)
-            with st.expander(f"{meal_name} ({len(records)}项, {meal_cal:.0f} 千卡)", expanded=True):
-                for idx, record in enumerate(records):
-                    col1, col2, col3 = st.columns([4, 1, 1])
-                    with col1:
-                        st.write(f"{record.get('emoji', '🍴')} **{record['food']}** - {record['weight_g']}g")
-                    with col2:
-                        st.write(f"**{record['calories']:.0f} 千卡**")
-                    with col3:
-                        if st.button("🗑️", key=f"del_{meal_type}_{idx}"):
-                            delete_record('meal', meal_type, idx)
-                            st.rerun()
+    else:
+        st.info("没有找到匹配的食物")
 
-# ==================== 记录运动 ====================
-elif page == "🏃 记录运动":
-    st.markdown('<h1 class="cartoon-title">🏃 记录运动</h1>', unsafe_allow_html=True)
-    
-    today_data = get_today_data()
-    total_burn = sum(r['calories'] for r in today_data.get('burn', []))
-    total_duration = sum(r['duration_min'] for r in today_data.get('burn', []))
-    
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        st.markdown(f"""
-        <div class="stat-card" style="background: linear-gradient(135deg, #ff9a9e 0%, #fecfef 100%);">
-            <h3>🔥 {total_burn:.0f}</h3>
-            <p>今日消耗（千卡）</p>
-        </div>
-        """, unsafe_allow_html=True)
-    with col2:
-        st.markdown(f"""
-        <div class="stat-card" style="background: linear-gradient(135deg, #a8edea 0%, #fed6e3 100%);">
-            <h3>⏱️ {total_duration}</h3>
-            <p>运动时长（分钟）</p>
-        </div>
-        """, unsafe_allow_html=True)
-    with col3:
-        st.markdown(f"""
-        <div class="stat-card" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white;">
-            <h3>📊 {len(today_data.get('burn', []))}</h3>
-            <p>运动次数</p>
-        </div>
-        """, unsafe_allow_html=True)
-    
-    st.markdown('<div class="cute-divider">✨ ✨ ✨</div>', unsafe_allow_html=True)
-    
-    # 运动选择
-    activity_category = st.selectbox("运动类型", list(ACTIVITY_DB.keys()))
-    activities = ACTIVITY_DB[activity_category]
-    
-    activity_names = [f"{a['emoji']} {a['name']} ({a['difficulty']})" for a in activities]
-    selected_idx = st.radio("选择运动", activity_names, horizontal=True)
-    selected_activity = activities[activity_names.index(selected_idx)]
-    
-    duration = st.slider("运动时长（分钟）", min_value=5, max_value=180, value=30, step=5)
-    estimated_cal = selected_activity['cal_per_min'] * duration
-    
-    st.markdown(f"""
-    <div class="suggestion-card">
-        <h4>💡 预计消耗</h4>
-        <p style="font-size: 2rem; margin: 0;">{estimated_cal:.0f} 千卡</p>
-        <p>{selected_activity['emoji']} {selected_activity['name']} {duration}分钟</p>
-    </div>
-    """, unsafe_allow_html=True)
-    
+    if 'selected_food' in st.session_state:
+        sf = st.session_state['selected_food']
+        st.markdown("---")
+        c1, c2, c3, c4 = st.columns(4)
+        c1.metric("热量", f"{sf['cal']}千卡/100g")
+        c2.metric("蛋白质", f"{sf['p']}g")
+        c3.metric("脂肪", f"{sf['f']}g")
+        c4.metric("碳水", f"{sf['c']}g")
+        weight = st.slider("份量 (克)", 10, 500, 100, step=10)
+        real_cal = sf['cal'] * weight / 100
+        st.info(f"这份 {sf['name']} ({weight}g) = **{real_cal:.1f}千卡** | 蛋白 {sf['p']*weight/100:.1f}g | 脂肪 {sf['f']*weight/100:.1f}g | 碳水 {sf['c']*weight/100:.1f}g")
+        c1, c2 = st.columns([1,1])
+        with c1:
+            if st.button("✅ 添加记录", type="primary", use_container_width=True):
+                save_meal(sf, weight, meal_key)
+                del st.session_state['selected_food']
+                st.success(f"已记录: {sf['e']} {sf['name']} {weight}g ({real_cal:.1f}千卡) -> {meal_label}")
+                st.rerun()
+        with c2:
+            if st.button("❌ 取消", use_container_width=True):
+                del st.session_state['selected_food']
+                st.rerun()
+
+    st.markdown('<div class="cute-divider">--- 📋 今日已记录 ---</div>', unsafe_allow_html=True)
+    td = get_today_data()
+    total_today = 0
+    for mlabel, mkey in MEAL_TYPES.items():
+        items = td.get('meals', {}).get(mkey, [])
+        if items:
+            sub = sum(r['calories'] for r in items)
+            total_today += sub
+            with st.expander(f"{mlabel} ({len(items)}项, {sub:.0f}千卡)", expanded=True):
+                for i, r in enumerate(items):
+                    cols = st.columns([3,1,1,1,1,1])
+                    cols[0].write(f"{r['emoji']} {r['food']} ({r['weight_g']}g)")
+                    cols[1].write(f"{r['calories']}kcal")
+                    cols[2].write(f"蛋白{r['protein']}g")
+                    cols[3].write(f"脂{r['fat']}g")
+                    cols[4].write(f"碳{r['carbs']}g")
+                    if cols[5].button("🗑️", key=f"del_{mkey}_{i}"):
+                        delete_record('meal', mkey, i)
+                        st.rerun()
+    st.metric("今日总摄入", f"{total_today:.1f} 千卡")
+
+# ==================== 页面2: 记录运动 ====================
+elif page == "\U0001f3c3 记录运动":
+    st.markdown('<p class="cartoon-title">🏃 记录运动</p>', unsafe_allow_html=True)
+    act_cat = st.selectbox("选择类型", list(ACTIVITY_DB.keys()))
+    acts = ACTIVITY_DB[act_cat]
+    act_names = [f"{a['e']} {a['name']} ({a['cpm']}千卡/分钟)" for a in acts]
+    act_idx = st.selectbox("选择运动", range(len(act_names)), format_func=lambda x: act_names[x])
+    act = acts[act_idx]
+    dur = st.slider("运动时长 (分钟)", 1, 120, 30)
+    est = act['cpm'] * dur
+    st.info(f"预估消耗: **{est} 千卡** ({act['cpm']}千卡/分钟 x {dur}分钟)")
     if st.button("✅ 记录运动", type="primary", use_container_width=True):
-        save_burn(selected_activity, duration)
-        st.success(f"🎉 已记录 {selected_activity['emoji']} {selected_activity['name']} {duration}分钟 = {estimated_cal:.0f} 千卡")
-        st.balloons()
+        save_burn(act, dur)
+        st.success(f"已记录: {act['e']} {act['name']} {dur}分钟 = {est}千卡")
         st.rerun()
-    
-    st.markdown('<div class="cute-divider">📋 📋 📋</div>', unsafe_allow_html=True)
-    
-    # 运动记录
-    st.subheader("📋 今日运动记录")
-    
-    burn_records = today_data.get('burn', [])
-    if burn_records:
-        for idx, record in enumerate(burn_records):
-            col1, col2, col3, col4 = st.columns([2, 1, 1, 1])
-            with col1:
-                st.write(f"{record.get('emoji', '🏃')} **{record['activity']}**")
-            with col2:
-                st.write(f"{record['duration_min']} 分钟")
-            with col3:
-                st.write(f"**{record['calories']:.0f} 千卡**")
-            with col4:
-                if st.button("🗑️", key=f"del_burn_{idx}"):
-                    delete_record('burn', index=idx)
-                    st.rerun()
+
+    st.markdown("---")
+    st.markdown("### 📋 今日运动记录")
+    td = get_today_data()
+    burns = td.get('burn', [])
+    total_burn = 0
+    if burns:
+        for i, r in enumerate(burns):
+            total_burn += r['calories']
+            cols = st.columns([4,1,1,1])
+            cols[0].write(f"{r['emoji']} {r['activity']} ({r['duration_min']}分钟)")
+            cols[1].write(f"{r['calories']}kcal")
+            cols[2].write(r.get('time',''))
+            if cols[3].button("🗑️", key=f"del_burn_{i}"):
+                delete_record('burn', idx=i)
+                st.rerun()
     else:
-        st.info("🏃 今天还没有运动记录，快来运动吧！")
+        st.info("今天还没有运动记录")
+    st.metric("今日总消耗", f"{total_burn:.1f} 千卡")
 
-# ==================== 今日统计 ====================
-elif page == "📊 今日统计":
-    st.markdown('<h1 class="cartoon-title">📊 今日统计</h1>', unsafe_allow_html=True)
-    
-    today_data = get_today_data()
-    total_intake = sum(sum(item['calories'] for item in meal) for meal in today_data.get('meals', {}).values())
-    total_burn = sum(r['calories'] for r in today_data.get('burn', []))
-    net_calories = total_intake - total_burn
-    
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        st.markdown(f"""
-        <div class="stat-card" style="background: linear-gradient(135deg, #ff9a9e 0%, #fecfef 100%);">
-            <h3>🍽️ {total_intake:.0f}</h3>
-            <p>总摄入（千卡）</p>
-        </div>
-        """, unsafe_allow_html=True)
-    with col2:
-        st.markdown(f"""
-        <div class="stat-card" style="background: linear-gradient(135deg, #a8edea 0%, #fed6e3 100%);">
-            <h3>🔥 {total_burn:.0f}</h3>
-            <p>总消耗（千卡）</p>
-        </div>
-        """, unsafe_allow_html=True)
-    with col3:
-        color = "#ff6b6b" if net_calories > 2000 else "#4ecdc4"
-        st.markdown(f"""
-        <div class="stat-card" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white;">
-            <h3>📈 {net_calories:.0f}</h3>
-            <p>净摄入（千卡）</p>
-        </div>
-        """, unsafe_allow_html=True)
-    
-    st.markdown('<div class="cute-divider">✨ ✨ ✨</div>', unsafe_allow_html=True)
-    
-    # 营养素分析
-    all_intake = []
-    for meal_records in today_data.get('meals', {}).values():
-        all_intake.extend(meal_records)
-    
-    if all_intake:
-        total_protein = sum(r.get('protein', 0) for r in all_intake)
-        total_fat = sum(r.get('fat', 0) for r in all_intake)
-        total_carbs = sum(r.get('carbs', 0) for r in all_intake)
-        
-        st.subheader("🥗 营养素分析")
-        
-        # 进度条
-        protein_cal = total_protein * 4
-        fat_cal = total_fat * 9
-        carbs_cal = total_carbs * 4
-        total_macro_cal = protein_cal + fat_cal + carbs_cal
-        
-        if total_macro_cal > 0:
-            protein_pct = int(protein_cal / total_macro_cal * 100)
-            fat_pct = int(fat_cal / total_macro_cal * 100)
-            carbs_pct = int(carbs_cal / total_macro_cal * 100)
-            
-            st.markdown(f"""
-            <div style="margin: 10px 0;">
-                <p>🥩 蛋白质: {total_protein:.1f}g ({protein_pct}%)</p>
-                <div class="progress-bar">
-                    <div class="progress-fill" style="width: {protein_pct}%; background: linear-gradient(90deg, #ff6b6b, #ffa502);">{protein_pct}%</div>
-                </div>
-            </div>
-            <div style="margin: 10px 0;">
-                <p>🧈 脂肪: {total_fat:.1f}g ({fat_pct}%)</p>
-                <div class="progress-bar">
-                    <div class="progress-fill" style="width: {fat_pct}%; background: linear-gradient(90deg, #feca57, #ff9ff3);">{fat_pct}%</div>
-                </div>
-            </div>
-            <div style="margin: 10px 0;">
-                <p>🍞 碳水: {total_carbs:.1f}g ({carbs_pct}%)</p>
-                <div class="progress-bar">
-                    <div class="progress-fill" style="width: {carbs_pct}%; background: linear-gradient(90deg, #48dbfb, #0abde3);">{carbs_pct}%</div>
-                </div>
-            </div>
-            """, unsafe_allow_html=True)
-        
-        st.markdown('<div class="cute-divider">🍽️ 🍽️ 🍽️</div>', unsafe_allow_html=True)
-        
-        # 各餐热量
-        st.subheader("🍽️ 各餐热量")
-        for meal_type, meal_name in MEAL_TYPES.items():
-            records = today_data.get('meals', {}).get(meal_type, [])
-            if records:
-                meal_cal = sum(r['calories'] for r in records)
-                with st.expander(f"{meal_name} - {meal_cal:.0f} 千卡"):
-                    for r in records:
-                        st.write(f"{r.get('emoji', '🍴')} {r['food']} {r['weight_g']}g = {r['calories']:.0f} 千卡")
+# ==================== 页面3: 今日统计 ====================
+elif page == "\U0001f4ca 今日统计":
+    st.markdown('<p class="cartoon-title">📊 今日统计</p>', unsafe_allow_html=True)
+    td = get_today_data()
+    ti = sum(sum(r['calories'] for r in m) for m in td.get('meals',{}).values())
+    tb = sum(r['calories'] for r in td.get('burn',[]))
+    tp = sum(sum(r['protein'] for r in m) for m in td.get('meals',{}).values())
+    tf = sum(sum(r['fat'] for r in m) for m in td.get('meals',{}).values())
+    tc = sum(sum(r['carbs'] for r in m) for m in td.get('meals',{}).values())
 
-# ==================== 周趋势 ====================
-elif page == "📈 周趋势":
-    st.markdown('<h1 class="cartoon-title">📈 一周趋势</h1>', unsafe_allow_html=True)
-    
-    weekly_data = get_weekly_data()
-    
-    # 进度条显示
-    st.subheader("📊 本周概览")
-    for d in weekly_data:
-        if d['intake'] > 0 or d['burn'] > 0:
-            st.markdown(f"**{d['day']}** ({d['date']})")
-            
-            intake_pct = min(100, int(d['intake'] / 2500 * 100))
-            burn_pct = min(100, int(d['burn'] / 500 * 100))
-            
-            st.markdown(f"""
-            <div style="margin: 5px 0;">
-                <p>🍽️ 摄入: {d['intake']:.0f} 千卡</p>
-                <div class="progress-bar">
-                    <div class="progress-fill intake" style="width: {intake_pct}%;">{d['intake']:.0f}</div>
-                </div>
-                <p>🔥 消耗: {d['burn']:.0f} 千卡</p>
-                <div class="progress-bar">
-                    <div class="progress-fill burn" style="width: {burn_pct}%;">{d['burn']:.0f}</div>
-                </div>
-            </div>
-            """, unsafe_allow_html=True)
-    
-    st.markdown('<div class="cute-divider">✨ ✨ ✨</div>', unsafe_allow_html=True)
-    
-    # 统计卡片
-    avg_intake = sum(d['intake'] for d in weekly_data) / 7
-    avg_burn = sum(d['burn'] for d in weekly_data) / 7
-    max_intake = max(d['intake'] for d in weekly_data)
-    max_burn = max(d['burn'] for d in weekly_data)
-    
-    col1, col2, col3, col4 = st.columns(4)
-    with col1:
-        st.metric("日均摄入", f"{avg_intake:.0f} 千卡")
-    with col2:
-        st.metric("日均消耗", f"{avg_burn:.0f} 千卡")
-    with col3:
-        st.metric("最高摄入", f"{max_intake:.0f} 千卡")
-    with col4:
-        st.metric("最高消耗", f"{max_burn:.0f} 千卡")
+    c1,c2,c3,c4 = st.columns(4)
+    with c1:
+        st.markdown('<div class="stat-card"><h3>🍽️</h3><h2>' + f"{ti:.0f}" + '</h2><p>摄入千卡</p></div>', unsafe_allow_html=True)
+    with c2:
+        st.markdown('<div class="stat-card"><h3>🔥</h3><h2>' + f"{tb:.0f}" + '</h2><p>消耗千卡</p></div>', unsafe_allow_html=True)
+    with c3:
+        st.markdown('<div class="stat-card"><h3>📈</h3><h2>' + f"{ti-tb:.0f}" + '</h2><p>净摄入千卡</p></div>', unsafe_allow_html=True)
+    with c4:
+        g = td.get('goal',{})
+        gc = g.get('calories',2000)
+        p = min(100,int(ti/gc*100)) if gc else 0
+        st.markdown('<div class="stat-card"><h3>🎯</h3><h2>' + f"{p}%" + '</h2><p>目标进度</p></div>', unsafe_allow_html=True)
 
-# ==================== 饮食建议 ====================
-elif page == "💡 饮食建议":
-    st.markdown('<h1 class="cartoon-title">💡 饮食建议</h1>', unsafe_allow_html=True)
-    
-    # 目标选择
-    st.subheader("🎯 选择你的目标")
-    col1, col2, col3, col4 = st.columns(4)
-    
-    with col1:
-        if st.button("🔥 减脂", use_container_width=True):
-            save_goal({"type": "lose_fat", "calories": 1500})
-            st.rerun()
-    with col2:
-        if st.button("⚖️ 减肥", use_container_width=True):
-            save_goal({"type": "lose_weight", "calories": 1200})
-            st.rerun()
-    with col3:
-        if st.button("💪 增肌", use_container_width=True):
-            save_goal({"type": "gain_muscle", "calories": 2500})
-            st.rerun()
-    with col4:
-        if st.button("📈 增重", use_container_width=True):
-            save_goal({"type": "gain_weight", "calories": 2800})
-            st.rerun()
-    
-    st.markdown('<div class="cute-divider">✨ ✨ ✨</div>', unsafe_allow_html=True)
-    
-    today_data = get_today_data()
-    goal = today_data.get('goal')
-    
-    total_intake = sum(sum(item['calories'] for item in meal) for meal in today_data.get('meals', {}).values())
-    total_burn = sum(r['calories'] for r in today_data.get('burn', []))
-    
-    all_intake = []
-    for meal_records in today_data.get('meals', {}).values():
-        all_intake.extend(meal_records)
-    
-    total_protein = sum(r.get('protein', 0) for r in all_intake)
-    total_fat = sum(r.get('fat', 0) for r in all_intake)
-    total_carbs = sum(r.get('carbs', 0) for r in all_intake)
-    
-    if goal:
-        goal_type = goal.get('type', '')
-        goal_cal = goal.get('calories', 2000)
-        
-        st.subheader(f"📊 今日目标：{goal_type.replace('_', ' ').title()}")
-        
-        # 目标进度
-        progress = min(100, int(total_intake / goal_cal * 100))
-        st.markdown(f"""
-        <div class="progress-bar">
-            <div class="progress-fill" style="width: {progress}%; background: linear-gradient(90deg, #667eea, #764ba2);">
-                {total_intake:.0f} / {goal_cal} 千卡 ({progress}%)
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
-        
-        st.markdown('<div class="cute-divider">💡 💡 💡</div>', unsafe_allow_html=True)
-        
-        # 不同目标的建议
-        if goal_type == "lose_fat":
-            st.markdown("""
-            <div class="suggestion-card" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);">
-                <h4>🔥 减脂目标建议</h4>
-                <ul>
-                    <li>🎯 每日热量控制在1500-1800千卡</li>
-                    <li>🥩 蛋白质摄入：体重(kg) × 1.5-2g，保持肌肉</li>
-                    <li>🍞 碳水选择：糙米、燕麦、红薯等低GI食物</li>
-                    <li>🧈 脂肪控制：少吃油炸，多吃坚果、鱼油</li>
-                    <li>🏃 有氧运动：每周3-5次，每次30-45分钟</li>
-                    <li>💪 力量训练：每周2-3次，防止肌肉流失</li>
-                </ul>
-            </div>
-            """, unsafe_allow_html=True)
-            
-            st.write("**推荐食物：**")
-            st.write("- 🍗 鸡胸肉、🐟 鱼肉、🦐 虾仁（高蛋白低脂）")
-            st.write("- 🥦 西兰花、🥒 黄瓜、🍅 番茄（低热量高纤维）")
-            st.write("- 🍚 糙米、🍠 红薯、🥣 燕麦（优质碳水）")
-            
-        elif goal_type == "lose_weight":
-            st.markdown("""
-            <div class="suggestion-card" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);">
-                <h4>⚖️ 减肥目标建议</h4>
-                <ul>
-                    <li>🎯 每日热量控制在1200-1500千卡</li>
-                    <li>🥗 多吃蔬菜，增加饱腹感</li>
-                    <li>🥩 保证蛋白质摄入，防止肌肉流失</li>
-                    <li>🚫 避免：奶茶、甜点、油炸食品</li>
-                    <li>💧 多喝水，每天至少2000ml</li>
-                    <li>🚶 增加日常活动量，多走路</li>
-                </ul>
-            </div>
-            """, unsafe_allow_html=True)
-            
-            st.write("**推荐食物：**")
-            st.write("- 🥒 黄瓜、🥬 生菜、🍅 番茄（几乎无热量）")
-            st.write("- 🍗 鸡胸肉、🥚 鸡蛋（优质蛋白）")
-            st.write("- 🍎 苹果、🍓 草莓（低糖水果）")
-            
-        elif goal_type == "gain_muscle":
-            st.markdown("""
-            <div class="suggestion-card" style="background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);">
-                <h4>💪 增肌目标建议</h4>
-                <ul>
-                    <li>🎯 每日热量摄入2200-2800千卡</li>
-                    <li>🥩 蛋白质摄入：体重(kg) × 2-2.5g</li>
-                    <li>🍞 碳水充足：训练前后补充碳水</li>
-                    <li>⏰ 少食多餐：每天5-6餐</li>
-                    <li>💪 力量训练：每周4-5次，渐进超负荷</li>
-                    <li>😴 充足睡眠：每天7-8小时</li>
-                </ul>
-            </div>
-            """, unsafe_allow_html=True)
-            
-            st.write("**推荐食物：**")
-            st.write("- 🍗 鸡胸肉、🥩 牛肉、🐟 三文鱼（增肌必备）")
-            st.write("- 🍚 米饭、🍞 全麦面包、🍌 香蕉（训练后补充）")
-            st.write("- 🥜 坚果、🥛 牛奶（健康脂肪）")
-            
-        elif goal_type == "gain_weight":
-            st.markdown("""
-            <div class="suggestion-card" style="background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);">
-                <h4>📈 增重目标建议</h4>
-                <ul>
-                    <li>🎯 每日热量摄入2500-3000千卡</li>
-                    <li>🍞 碳水为主：每餐都要有主食</li>
-                    <li>🥩 适量蛋白质：体重(kg) × 1.5-2g</li>
-                    <li>🥑 健康脂肪：坚果、牛油果、橄榄油</li>
-                    <li>⏰ 少食多餐：每天5-6餐</li>
-                    <li>💪 配合力量训练：增加肌肉而非脂肪</li>
-                </ul>
-            </div>
-            """, unsafe_allow_html=True)
-            
-            st.write("**推荐食物：**")
-            st.write("- 🍚 米饭、🍜 面条、🍞 馒头（高碳水主食）")
-            st.write("- 🥜 坚果、🍫 巧克力、🍌 香蕉（高热量零食）")
-            st.write("- 🥛 牛奶、🎂 蛋糕、🍔 汉堡（快速增热量）")
-    
+    st.markdown("---")
+    st.markdown("### 🥗 营养素分布")
+    macros = [{"name":"蛋白质","value":tp,"color":"#4facfe","unit":"g"},
+              {"name":"脂肪","value":tf,"color":"#feca57","unit":"g"},
+              {"name":"碳水","value":tc,"color":"#43e97b","unit":"g"}]
+    for m in macros:
+        cols = st.columns([1,3,1])
+        cols[0].markdown(f"**{m['name']}**")
+        pct = min(100, int(m['value']/max(1,tp+tf+tc)*100))
+        cols[1].markdown(f'<div class="progress-bar"><div class="progress-fill" style="width:{max(pct,8)}%;background:{m["color"]}">{m["value"]:.1f}{m["unit"]}</div></div>', unsafe_allow_html=True)
+
+    st.markdown("---")
+    st.markdown("### 🍽️ 各餐明细")
+    for mlabel, mkey in MEAL_TYPES.items():
+        items = td.get('meals',{}).get(mkey,[])
+        if items:
+            sub = sum(r['calories'] for r in items)
+            foods_str = " | ".join([f"{r['emoji']}{r['food']}{r['weight_g']}g={r['calories']}kcal" for r in items])
+            st.markdown(f"**{mlabel}** {sub:.0f}千卡")
+            st.caption(foods_str)
+
+# ==================== 页面4: 周趋势 ====================
+elif page == "\U0001f4c8 周趋势":
+    st.markdown('<p class="cartoon-title">📈 一周趋势</p>', unsafe_allow_html=True)
+    weekly = get_weekly()
+    days = [w['day'] for w in weekly]
+    intakes = [w['intake'] for w in weekly]
+    burns = [w['burn'] for w in weekly]
+
+    import pandas as pd
+    df = pd.DataFrame({"日期": days, "摄入": intakes, "消耗": burns})
+    st.bar_chart(df.set_index("日期"))
+
+    st.markdown("### 📋 每日详情")
+    for w in weekly:
+        net = w['intake'] - w['burn']
+        cols = st.columns([2,1,1,1])
+        cols[0].write(f"**{w['day']}** ({w['date']})")
+        cols[1].write(f"🍽️ {w['intake']}kcal")
+        cols[2].write(f"🔥 {w['burn']}kcal")
+        cols[3].write(f"📈 净{net:.0f}kcal")
+
+    avg_in = sum(intakes)/7
+    avg_burn = sum(burns)/7
+    st.markdown("---")
+    c1,c2,c3 = st.columns(3)
+    c1.metric("日均摄入", f"{avg_in:.0f} 千卡")
+    c2.metric("日均消耗", f"{avg_burn:.0f} 千卡")
+    c3.metric("日均净摄入", f"{avg_in-avg_burn:.0f} 千卡")
+
+# ==================== 页面5: BMI与建议 ====================
+elif page == "\U0001f4a1 BMI与建议":
+    st.markdown('<p class="cartoon-title">💡 BMI计算与饮食建议</p>', unsafe_allow_html=True)
+
+    st.markdown("### 📐 计算你的BMI")
+    c1, c2, c3 = st.columns(3)
+    height = c1.number_input("身高 (cm)", min_value=100, max_value=250, value=170, step=1)
+    weight = c2.number_input("体重 (kg)", min_value=30, max_value=200, value=65, step=1)
+    age = c3.number_input("年龄", min_value=10, max_value=100, value=25, step=1)
+    gender = st.radio("性别", ["男","女"], horizontal=True)
+
+    bmi, bmi_label, bmi_color, bmi_emoji = calc_bmi(height, weight)
+    st.markdown(f'<div style="text-align:center;padding:20px;background:white;border-radius:20px;border:3px solid {bmi_color};margin:10px 0;">'
+                f'<span style="font-size:3rem;">{bmi_emoji}</span><br>'
+                f'<span style="font-size:2rem;font-weight:bold;color:{bmi_color};">BMI: {bmi:.1f}</span><br>'
+                f'<span style="font-size:1.3rem;">分类: {bmi_label}</span></div>', unsafe_allow_html=True)
+
+    st.markdown("---")
+    st.markdown("### 🎯 选择你的目标")
+    if bmi < 18.5:
+        default_goal = "gain_weight"
+        rec = "你偏瘦，建议增重或增肌"
+    elif bmi < 24:
+        default_goal = "maintain"
+        rec = "体重正常，建议保持或塑形"
+    elif bmi < 28:
+        default_goal = "lose_fat"
+        rec = "偏胖，建议减脂"
     else:
-        st.info("👆 请先选择你的目标（减脂/减肥/增肌/增重）")
-        
-        # 通用建议
-        st.subheader("📝 通用健康建议")
+        default_goal = "lose_weight"
+        rec = "肥胖，建议健康减肥"
+    st.info(f"💡 基于你的BMI，推荐目标: **{rec}**")
+
+    goal = st.selectbox("你的目标", ["lose_fat","lose_weight","gain_muscle","gain_weight","maintain"],
+                        format_func=get_goal_name, index=["lose_fat","lose_weight","gain_muscle","gain_weight","maintain"].index(default_goal))
+
+    btmr = st.slider("活动水平", 1.0, 2.0, 1.55, 0.05, format="%.2f", key="bmr_level")
+    if gender == "男":
+        bmr = 10 * weight + 6.25 * height - 5 * age + 5
+    else:
+        bmr = 10 * weight + 6.25 * height - 5 * age - 161
+    tdee = bmr * btmr
+
+    if goal == "lose_fat": target = tdee - 300; protein_r = weight * 1.8
+    elif goal == "lose_weight": target = tdee - 500; protein_r = weight * 1.5
+    elif goal == "gain_muscle": target = tdee + 300; protein_r = weight * 2.0
+    elif goal == "gain_weight": target = tdee + 500; protein_r = weight * 1.6
+    else: target = tdee; protein_r = weight * 1.2
+
+    st.markdown("---")
+    st.markdown("### 📊 你的个性化方案")
+    c1,c2,c3,c4 = st.columns(4)
+    c1.metric("🌡️ 基础代谢", f"{bmr:.0f} 千卡/天")
+    c2.metric("🏃 每日消耗", f"{tdee:.0f} 千卡/天")
+    c3.metric("🎯 每日目标", f"{target:.0f} 千卡")
+    c4.metric("💪 蛋白质", f"{protein_r:.0f}g/天")
+
+    total_protein_cal = protein_r * 4
+    fat_r = (target - total_protein_cal) * 0.3 / 9
+    carb_r = (target - total_protein_cal - fat_r * 9) / 4
+    st.markdown(f"""
+    | 营养素 | 每日目标 | 占比 |
+    |--------|---------|------|
+    | 蛋白质 | {protein_r:.0f}g ({protein_r*4:.0f}千卡) | {protein_r*4/target*100:.0f}% |
+    | 脂肪 | {fat_r:.0f}g ({fat_r*9:.0f}千卡) | {fat_r*9/target*100:.0f}% |
+    | 碳水 | {carb_r:.0f}g ({carb_r*4:.0f}千卡) | {carb_r*4/target*100:.0f}% |
+    """)
+
+    st.markdown("---")
+    st.markdown("### 🍽️ 每餐分配建议")
+    st.markdown(f"""
+    | 餐次 | 热量分配 | 热量 | 蛋白质 | 说明 |
+    |------|---------|------|--------|------|
+    | 🌅 早餐 | 25% | {target*0.25:.0f}kcal | {protein_r*0.25:.0f}g | 全谷物+蛋奶+水果 |
+    | ☀️ 午餐 | 35% | {target*0.35:.0f}kcal | {protein_r*0.35:.0f}g | 主食+肉蛋+蔬菜 |
+    | 🌙 晚餐 | 30% | {target*0.30:.0f}kcal | {protein_r*0.30:.0f}g | 清淡为主+适量蛋白 |
+    | 🍪 加餐 | 10% | {target*0.10:.0f}kcal | {protein_r*0.10:.0f}g | 坚果/酸奶/水果 |
+    """)
+
+    if goal in ("lose_fat", "lose_weight"):
+        st.markdown("### 🔥 减脂/减肥饮食建议")
+        deficit = tdee - target
+        weeks_500g = 500 / (deficit / 7700 * 1000) if deficit > 0 else 999
+        st.info(f"每日热量缺口 **{deficit:.0f}千卡** → 约 {weeks_500g:.1f} 周减0.5kg")
         st.markdown("""
-        <div class="cartoon-card">
-            <h4>🌟 健康饮食原则</h4>
-            <ul>
-                <li>🥗 蔬菜占每餐的一半</li>
-                <li>🥩 蛋白质占四分之一</li>
-                <li>🍞 碳水占四分之一</li>
-                <li>💧 每天喝8杯水</li>
-                <li>🚫 少油少盐少糖</li>
-                <li>⏰ 三餐规律，不熬夜</li>
-            </ul>
-        </div>
-        """, unsafe_allow_html=True)
+        **✅ 推荐食物:** 鸡胸肉、三文鱼、虾仁、西兰花、黄瓜、番茄、糙米、红薯、苹果、草莓
+
+        **❌ 少吃:** 奶茶、汉堡、薯条、蛋糕、巧克力、白米饭
+
+        **💡 技巧:**
+        - 每餐先吃蔬菜和蛋白质，最后吃主食
+        - 饭前喝一杯水
+        - 细嚼慢咽，每餐20分钟以上
+        - 晚餐在睡前3小时吃完
+        """)
+
+    elif goal == "gain_muscle":
+        st.markdown("### 💪 增肌饮食建议")
+        st.info(f"每日盈余 **{target-tdee:.0f}千卡** + 高蛋白 **{protein_r:.0f}g**")
+        st.markdown("""
+        **✅ 推荐食物:** 鸡胸肉、牛肉、鸡蛋、三文鱼、燕麦片、全麦面包、香蕉、坚果
+
+        **💡 技巧:**
+        - 每餐保证30-40g蛋白质
+        - 训练后30分钟内补充蛋白质+碳水
+        - 睡前可补充酪蛋白（牛奶/酸奶）
+        - 每公斤体重至少1.6g蛋白质
+        """)
+
+    elif goal == "gain_weight":
+        st.markdown("### 📈 增重饮食建议")
+        st.info(f"每日盈余 **{target-tdee:.0f}千卡**，逐步增重")
+        st.markdown("""
+        **✅ 推荐食物:** 红烧肉、牛奶、坚果、巧克力、香蕉、米饭、馒头、面包
+
+        **💡 技巧:**
+        - 少食多餐，一天5-6顿
+        - 选择热量密度高的食物
+        - 坚果、花生酱是增重好帮手
+        - 配合力量训练增加肌肉量
+        """)
+
+    else:
+        st.markdown("### ✅ 保持体重建议")
+        st.info(f"维持当前 **{target:.0f}千卡/天** 即可")
+        st.markdown("""
+        **✅ 均衡饮食:** 蛋白质、碳水、脂肪合理搭配
+        **🏃 保持运动:** 每周3-5次，每次30分钟以上
+        **💡 定期监测:** 每周称重1-2次，及时调整
+        """)
