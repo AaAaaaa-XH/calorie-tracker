@@ -811,13 +811,45 @@ if page == "\U0001f4dd 记录饮食":
         c4.metric("碳水", f"{sf['c']}g")
         if sf['name'] in FOOD_UNITS:
             unit_info = FOOD_UNITS[sf['name']]
-            st.markdown(f"**单位参照:** {unit_info['ref']}")
-            unit_options = [f"{s['l']} ({s['g']}g)" for s in get_servings(sf['name'])]
+            unit = unit_info['unit']
+            ref = unit_info['ref']
+            
+            st.markdown(f"**单位参照:** {ref}")
+            
+            unit_map = {
+                "碗": [1, 2, 3],
+                "个": [1, 2, 3],
+                "根": [1, 2, 3],
+                "块": [1, 2, 3],
+                "片": [1, 2, 3],
+                "份": [1, 2, 3],
+                "杯": [1, 2, 3],
+                "把": [1, 2, 3],
+                "朵": [1, 2, 3],
+                "串": [1, 2, 3],
+                "球": [1, 2, 3],
+                "罐": [1, 2, 3],
+                "盒": [1, 2, 3],
+                "房": [1, 2, 3],
+                "节": [1, 2, 3],
+                "张": [1, 2, 3],
+                "袋": [1, 2, 3],
+                "瓶": [1, 2, 3],
+                "包": [1, 2, 3],
+            }
+            
+            amounts = unit_map.get(unit, [1, 2, 3])
+            
+            unit_options = [f"{a} {unit}" for a in amounts]
             unit_options.append("自定义克数")
+            
             selected_unit = st.selectbox("选择份量", unit_options, key="unit_select")
+            
             if selected_unit != "自定义克数":
-                unit_idx = unit_options.index(selected_unit)
-                st.session_state['weight'] = get_servings(sf['name'])[unit_idx]['g']
+                idx = unit_options.index(selected_unit)
+                amount = amounts[idx]
+                weight_per = int(ref.split('≈')[1].split('g')[0])
+                st.session_state['weight'] = weight_per * amount
             else:
                 st.session_state['weight'] = 100
         else:
