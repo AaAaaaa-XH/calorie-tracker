@@ -736,7 +736,7 @@ with st.sidebar:
     st.markdown("## \U0001f34e 卡路里追踪器")
     st.markdown("*记录饮食 · 追踪营养 · 健康生活*")
     st.markdown("---")
-    page = st.radio("功能", ["\U0001f4dd 记录饮食","\U0001f3c3 记录运动","\U0001f4ca 今日统计","\U0001f4c8 周趋势","\U0001f4a1 BMI与建议"], label_visibility="collapsed")
+    page = st.radio("功能", ["\U0001f3af 一键定制","\U0001f4dd 记录饮食","\U0001f3c3 记录运动","\U0001f4ca 今日统计","\U0001f4c8 周趋势","\U0001f4a1 BMI与建议"], label_visibility="collapsed")
     st.markdown("---")
     td = get_today_data()
     ti = sum(sum(r['calories'] for r in m) for m in td.get('meals',{}).values())
@@ -753,6 +753,169 @@ with st.sidebar:
         st.markdown(f"**目标:** {get_goal_name(g.get('type',''))} {gc}千卡")
         st.progress(p/100)
         st.caption(f"{ti:.0f}/{gc} ({p}%)")
+# ==================== 页面0: 一键定制 ====================
+if page == "\U0001f3af 一键定制":
+    st.markdown('<p class="cartoon-title">🎯 一键定制饮食计划</p>', unsafe_allow_html=True)
+    
+    st.markdown("输入你的身体数据，自动生成今日三餐计划")
+    
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        height = st.number_input("身高 (cm)", min_value=100, max_value=250, value=170, step=1)
+    with col2:
+        weight = st.number_input("体重 (kg)", min_value=30, max_value=200, value=65, step=1)
+    with col3:
+        age = st.number_input("年龄", min_value=10, max_value=100, value=25, step=1)
+    
+    gender = st.radio("性别", ["男","女"], horizontal=True)
+    
+    activity_level = st.select_slider("活动水平", options=["久坐","轻度活动","中度活动","高强度运动"], value="轻度活动")
+    activity_map = {"久坐":1.2, "轻度活动":1.375, "中度活动":1.55, "高强度运动":1.725}
+    btmr = activity_map[activity_level]
+    
+    goal = st.selectbox("你的目标", ["lose_fat","lose_weight","gain_muscle","maintain"], format_func=get_goal_name)
+    
+    if gender == "男":
+        bmr = 10 * weight + 6.25 * height - 5 * age + 5
+    else:
+        bmr = 10 * weight + 6.25 * height - 5 * age - 161
+    tdee = bmr * btmr
+    
+    if goal == "lose_fat": target = tdee - 300; protein_r = weight * 1.8
+    elif goal == "lose_weight": target = tdee - 500; protein_r = weight * 1.5
+    elif goal == "gain_muscle": target = tdee + 300; protein_r = weight * 2.0
+    else: target = tdee; protein_r = weight * 1.2
+    
+    total_protein_cal = protein_r * 4
+    fat_r = (target - total_protein_cal) * 0.3 / 9
+    carb_r = (target - total_protein_cal - fat_r * 9) / 4
+    
+    st.markdown("---")
+    c1,c2,c3,c4 = st.columns(4)
+    c1.metric("🌡️ 基础代谢", f"{bmr:.0f} 千卡")
+    c2.metric("🏃 每日消耗", f"{tdee:.0f} 千卡")
+    c3.metric("🎯 每日目标", f"{target:.0f} 千卡")
+    c4.metric("💪 蛋白质", f"{protein_r:.0f}g")
+    
+    st.markdown("---")
+    
+    if st.button("🍳 生成今日饮食计划", type="primary", use_container_width=True):
+        breakfast_cal = target * 0.25
+        lunch_cal = target * 0.35
+        dinner_cal = target * 0.30
+        snack_cal = target * 0.10
+        
+        breakfast_protein = protein_r * 0.25
+        lunch_protein = protein_r * 0.35
+        dinner_protein = protein_r * 0.30
+        snack_protein = protein_r * 0.10
+        
+        def get_food_by_name(name):
+            for cat, items in FOOD_DB.items():
+                for item in items:
+                    if item['name'] == name:
+                        return item
+            return None
+        
+        def calc_weight(food, target_cal):
+            return round(target_cal / food['cal'] * 100)
+        
+        def find_food_for_meal(target_cal, target_protein, category_keywords, exclude=[]):
+            candidates = []
+            for cat, items in FOOD_DB.items():
+                for item in items:
+                    if item['name'] in exclude:
+                        continue
+                    for kw in category_keywords:
+                        if kw in cat or kw in item['name']:
+                            candidates.append(item)
+                            break
+            
+            if not candidates:
+                for cat, items in FOOD_DB.items():
+                    for item in items:
+                        if item['name'] not in exclude:
+                            candidates.append(item)
+            
+            best = None
+            best_score = -1
+            for item in candidates:
+                cal_diff = abs(item['cal'] - target_cal / 200 * 100)
+                protein_score = item['p'] * 2
+                score = protein_score - cal_diff * 0.1
+                if score > best_score:
+                    best_score = score
+                    best = item
+            return best
+        
+        breakfast_main = find_food_for_meal(breakfast_cal, breakfast_protein, ["主食","粥","面包","燕麦"], ["面条","米饭"])
+        breakfast_protein_food = find_food_for_meal(breakfast_cal*0.4, breakfast_protein*0.6, ["鸡蛋","牛奶","酸奶"], ["蛋糕","冰淇淋"])
+        breakfast_fruit = find_food_for_meal(breakfast_cal*0.2, 0, ["水果"], ["西瓜","榴莲"])
+        
+        lunch_main = find_food_for_meal(lunch_cal*0.4, lunch_protein*0.3, ["米饭","面条","馒头"], [])
+        lunch_meat = find_food_for_meal(lunch_cal*0.35, lunch_protein*0.5, ["鸡","牛","猪","鱼","虾"], ["鸡翅","排骨"])
+        lunch_veg = find_food_for_meal(lunch_cal*0.25, lunch_protein*0.2, ["蔬菜","青菜","白菜","菠菜"], [])
+        
+        dinner_main = find_food_for_meal(dinner_cal*0.35, dinner_protein*0.3, ["粥","面条","米饭","红薯"], ["油条","煎饼"])
+        dinner_meat = find_food_for_meal(dinner_cal*0.35, dinner_protein*0.5, ["鱼","虾","豆腐","鸡胸"], ["鸡翅","排骨"])
+        dinner_veg = find_food_for_meal(dinner_cal*0.3, dinner_protein*0.2, ["蔬菜","青菜","黄瓜","番茄"], [])
+        
+        snack_food = find_food_for_meal(snack_cal, snack_protein*0.5, ["酸奶","坚果","水果","牛奶"], ["蛋糕","巧克力","冰淇淋"])
+        
+        st.markdown('<div class="cute-divider">--- 🍽️ 今日饮食计划 ---</div>', unsafe_allow_html=True)
+        
+        st.markdown(f"### 🌅 早餐 ({breakfast_cal:.0f}千卡)")
+        if breakfast_main:
+            w1 = calc_weight(breakfast_main, breakfast_cal*0.5)
+            st.markdown(f"- **{breakfast_main['e']} {breakfast_main['name']}** {w1}g ({breakfast_main['cal']*w1/100:.0f}千卡)")
+        if breakfast_protein_food:
+            w2 = calc_weight(breakfast_protein_food, breakfast_cal*0.35)
+            st.markdown(f"- **{breakfast_protein_food['e']} {breakfast_protein_food['name']}** {w2}g ({breakfast_protein_food['cal']*w2/100:.0f}千卡)")
+        if breakfast_fruit:
+            w3 = calc_weight(breakfast_fruit, breakfast_cal*0.15)
+            st.markdown(f"- **{breakfast_fruit['e']} {breakfast_fruit['name']}** {w3}g ({breakfast_fruit['cal']*w3/100:.0f}千卡)")
+        
+        st.markdown(f"### ☀️ 午餐 ({lunch_cal:.0f}千卡)")
+        if lunch_main:
+            w1 = calc_weight(lunch_main, lunch_cal*0.4)
+            st.markdown(f"- **{lunch_main['e']} {lunch_main['name']}** {w1}g ({lunch_main['cal']*w1/100:.0f}千卡)")
+        if lunch_meat:
+            w2 = calc_weight(lunch_meat, lunch_cal*0.35)
+            st.markdown(f"- **{lunch_meat['e']} {lunch_meat['name']}** {w2}g ({lunch_meat['cal']*w2/100:.0f}千卡)")
+        if lunch_veg:
+            w3 = calc_weight(lunch_veg, lunch_cal*0.25)
+            st.markdown(f"- **{lunch_veg['e']} {lunch_veg['name']}** {w3}g ({lunch_veg['cal']*w3/100:.0f}千卡)")
+        
+        st.markdown(f"### 🌙 晚餐 ({dinner_cal:.0f}千卡)")
+        if dinner_main:
+            w1 = calc_weight(dinner_main, dinner_cal*0.35)
+            st.markdown(f"- **{dinner_main['e']} {dinner_main['name']}** {w1}g ({dinner_main['cal']*w1/100:.0f}千卡)")
+        if dinner_meat:
+            w2 = calc_weight(dinner_meat, dinner_cal*0.35)
+            st.markdown(f"- **{dinner_meat['e']} {dinner_meat['name']}** {w2}g ({dinner_meat['cal']*w2/100:.0f}千卡)")
+        if dinner_veg:
+            w3 = calc_weight(dinner_veg, dinner_cal*0.3)
+            st.markdown(f"- **{dinner_veg['e']} {dinner_veg['name']}** {w3}g ({dinner_veg['cal']*w3/100:.0f}千卡)")
+        
+        st.markdown(f"### 🍪 加餐 ({snack_cal:.0f}千卡)")
+        if snack_food:
+            w = calc_weight(snack_food, snack_cal)
+            st.markdown(f"- **{snack_food['e']} {snack_food['name']}** {w}g ({snack_food['cal']*w/100:.0f}千卡)")
+        
+        st.markdown("---")
+        st.markdown("### 📊 营养汇总")
+        total_cal = breakfast_cal + lunch_cal + dinner_cal + snack_cal
+        st.markdown(f"""
+        | 餐次 | 热量 | 蛋白质 | 脂肪 | 碳水 |
+        |------|------|--------|------|------|
+        | 🌅 早餐 | {breakfast_cal:.0f}kcal | {breakfast_protein:.0f}g | {fat_r*0.25:.0f}g | {carb_r*0.25:.0f}g |
+        | ☀️ 午餐 | {lunch_cal:.0f}kcal | {lunch_protein:.0f}g | {fat_r*0.35:.0f}g | {carb_r*0.35:.0f}g |
+        | 🌙 晚餐 | {dinner_cal:.0f}kcal | {dinner_protein:.0f}g | {fat_r*0.30:.0f}g | {carb_r*0.30:.0f}g |
+        | 🍪 加餐 | {snack_cal:.0f}kcal | {snack_protein:.0f}g | {fat_r*0.10:.0f}g | {carb_r*0.10:.0f}g |
+        | **合计** | **{total_cal:.0f}kcal** | **{protein_r:.0f}g** | **{fat_r:.0f}g** | **{carb_r:.0f}g** |
+        """)
+        
+        st.info("💡 提示: 以上为推荐方案，可根据个人口味调整同类食物")
 # ==================== 页面1: 记录饮食 ====================
 if page == "\U0001f4dd 记录饮食":
     st.markdown('<p class="cartoon-title">📝 记录饮食</p>', unsafe_allow_html=True)
