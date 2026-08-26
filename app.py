@@ -781,10 +781,26 @@ if page == "\U0001f3af 一键定制":
         bmr = 10 * weight + 6.25 * height - 5 * age - 161
     tdee = bmr * btmr
     
-    if goal == "lose_fat": target = tdee - 300; protein_r = weight * 1.8
-    elif goal == "lose_weight": target = tdee - 500; protein_r = weight * 1.5
-    elif goal == "gain_muscle": target = tdee + 300; protein_r = weight * 2.0
-    else: target = tdee; protein_r = weight * 1.2
+    if goal == "lose_fat": 
+        target = tdee - 300
+        protein_r = weight * 1.8
+        calorie_deficit = 300
+        goal_desc = "减脂"
+    elif goal == "lose_weight": 
+        target = tdee - 500
+        protein_r = weight * 1.5
+        calorie_deficit = 500
+        goal_desc = "减肥"
+    elif goal == "gain_muscle": 
+        target = tdee + 300
+        protein_r = weight * 2.0
+        calorie_deficit = -300
+        goal_desc = "增肌"
+    else: 
+        target = tdee
+        protein_r = weight * 1.2
+        calorie_deficit = 0
+        goal_desc = "保持"
     
     total_protein_cal = protein_r * 4
     fat_r = (target - total_protein_cal) * 0.3 / 9
@@ -794,10 +810,19 @@ if page == "\U0001f3af 一键定制":
     c1,c2,c3,c4 = st.columns(4)
     c1.metric("🌡️ 基础代谢", f"{bmr:.0f} 千卡")
     c2.metric("🏃 每日消耗", f"{tdee:.0f} 千卡")
-    c3.metric("🎯 每日目标", f"{target:.0f} 千卡")
-    c4.metric("💪 蛋白质", f"{protein_r:.0f}g")
+    c3.metric("🎯 每日摄入", f"{target:.0f} 千卡")
+    if calorie_deficit > 0:
+        c4.metric("📉 热量缺口", f"-{calorie_deficit} 千卡/天")
+    elif calorie_deficit < 0:
+        c4.metric("📈 热量盈余", f"+{abs(calorie_deficit)} 千卡/天")
+    else:
+        c4.metric("⚖️ 热量平衡", "0 千卡")
     
     st.markdown("---")
+    
+    if calorie_deficit > 0:
+        weeks_500g = 500 / (calorie_deficit / 7700 * 1000) if calorie_deficit > 0 else 999
+        st.info(f"💡 每日热量缺口 **{calorie_deficit}千卡** → 约 **{weeks_500g:.1f} 周** 可减0.5kg")
     
     if st.button("🍳 生成今日饮食计划", type="primary", use_container_width=True):
         breakfast_cal = target * 0.25
