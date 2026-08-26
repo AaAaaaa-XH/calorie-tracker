@@ -782,19 +782,19 @@ if page == "\U0001f3af 一键定制":
     tdee = bmr * btmr
     
     if goal == "lose_fat": 
-        target = tdee - 300
+        target = max(tdee - 300, bmr)
         protein_r = weight * 1.8
-        calorie_deficit = 300
+        calorie_deficit = tdee - target
         goal_desc = "减脂"
     elif goal == "lose_weight": 
-        target = tdee - 500
+        target = max(tdee - 500, bmr)
         protein_r = weight * 1.5
-        calorie_deficit = 500
+        calorie_deficit = tdee - target
         goal_desc = "减肥"
     elif goal == "gain_muscle": 
         target = tdee + 300
         protein_r = weight * 2.0
-        calorie_deficit = -300
+        calorie_deficit = tdee - target
         goal_desc = "增肌"
     else: 
         target = tdee
@@ -1166,8 +1166,16 @@ elif page == "\U0001f4c8 周趋势":
     intakes = [w['intake'] for w in weekly]
     burns = [w['burn'] for w in weekly]
     import pandas as pd
+    import altair as alt
     df = pd.DataFrame({"日期": days, "摄入": intakes, "消耗": burns})
-    st.bar_chart(df.set_index("日期"))
+    df_melted = df.melt("日期", var_name="类型", value_name="千卡")
+    chart = alt.Chart(df_melted).mark_bar(cornerRadiusTopLeft=5, cornerRadiusTopRight=5).encode(
+        x=alt.X("日期:N", sort=None),
+        y=alt.Y("千卡:Q"),
+        color=alt.Color("类型:N", scale=alt.Scale(domain=["摄入","消耗"], range=["#7eb8da","#b8d4e3"])),
+        xOffset="类型:N"
+    ).configure_view(stroke=None).configure_axis(grid=False)
+    st.altair_chart(chart, use_container_width=True)
     st.markdown("### 📋 每日详情")
     for w in weekly:
         net = w['intake'] - w['burn']
